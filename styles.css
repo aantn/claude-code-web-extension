@@ -117,11 +117,6 @@
   padding: 8px;
 }
 
-/* Keyboard shortcut hint */
-.cc-search-input:not(:focus)::placeholder {
-  content: "Search sessions... (Ctrl+K)";
-}
-
 /* Dark mode adjustments (Claude uses CSS variables, so this should work automatically) */
 @media (prefers-color-scheme: dark) {
   .cc-repo-select {
@@ -129,20 +124,7 @@
   }
 }
 
-/* No results message */
-.cc-no-results {
-  padding: 16px;
-  text-align: center;
-  color: hsl(var(--text-500));
-  font-size: 13px;
-}
-
-/* Animation for filtering */
-[data-index] {
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-
-[data-index][style*="display: none"] {
-  opacity: 0;
-  transform: scale(0.95);
+/* Hidden session items - instant hide, no animation to avoid jumpiness */
+[data-index].cc-hidden {
+  display: none !important;
 }

@@ -6,6 +6,8 @@
   let repoFilter = null;
   let filterContainer = null;
   let isInitialized = false;
+  let observer = null;
+  let isFiltering = false;
 
   // Debounce function to limit filter calls
   function debounce(func, wait) {
@@ -37,7 +39,7 @@
 
   // Update repo dropdown options
   function updateRepoOptions() {
-    if (!repoFilter) return;
+    if (!repoFilter || isFiltering) return;
 
     const currentValue = repoFilter.value;
     const repos = extractRepos();
@@ -68,7 +70,16 @@
     const searchText = searchInput.value.toLowerCase().trim();
     const selectedRepo = repoFilter.value;
 
+    // Pause observer during filtering to prevent feedback loop
+    if (observer) {
+      observer.disconnect();
+    }
+    isFiltering = true;
+
     const sessionItems = document.querySelectorAll('[data-index]');
+
+    // Collect all changes first, then apply in one batch
+    const changes = [];
 
     sessionItems.forEach(item => {
       const titleSpan = item.querySelector('.font-base.text-text-100.leading-relaxed');
@@ -79,19 +90,42 @@
 
       const matchesSearch = !searchText || title.includes(searchText);
       const matchesRepo = !selectedRepo || repo === selectedRepo;
+      const shouldShow = matchesSearch && matchesRepo;
 
-      // Find the parent group div that controls visibility
-      const groupDiv = item.querySelector('.group');
-      if (groupDiv) {
-        if (matchesSearch && matchesRepo) {
-          item.style.display = '';
-          groupDiv.style.display = '';
-        } else {
-          item.style.display = 'none';
-          groupDiv.style.display = 'none';
-        }
-      }
+      changes.push({ item, shouldShow });
     });
+
+    // Apply all changes in a single frame
+    requestAnimationFrame(() => {
+      changes.forEach(({ item, shouldShow }) => {
+        if (shouldShow) {
+          item.classList.remove('cc-hidden');
+        } else {
+          item.classList.add('cc-hidden');
+        }
+      });
+
+      // Re-enable observer after a short delay
+      requestAnimationFrame(() => {
+        isFiltering = false;
+        reconnectObserver();
+      });
+    });
+  }
+
+  // Reconnect the mutation observer
+  function reconnectObserver() {
+    if (!observer) return;
+
+    const sessionsContainer = document.querySelector('.flex-1.overflow-x-hidden');
+    if (sessionsContainer) {
+      observer.observe(sessionsContainer, {
+        childList: true,
+        subtree: true,
+        attributes: false,
+        characterData: false
+      });
+    }
   }
 
   // Create the search and filter UI
@@ -147,8 +181,8 @@
     repoFilter = document.getElementById('cc-repo-filter');
     const clearBtn = document.getElementById('cc-clear-search');
 
-    // Add event listeners
-    const debouncedFilter = debounce(filterSessions, 150);
+    // Debounced filter with longer wait for smoother UX
+    const debouncedFilter = debounce(filterSessions, 250);
 
     searchInput.addEventListener('input', () => {
       clearBtn.style.display = searchInput.value ? 'flex' : 'none';
@@ -196,21 +230,17 @@
       console.log('Claude Code Sessions Search & Filter: Initialized');
 
       // Set up a MutationObserver to update repo options when sessions change
-      const observer = new MutationObserver(debounce(() => {
+      const debouncedUpdate = debounce(() => {
+        if (isFiltering) return;
         updateRepoOptions();
         // Re-apply filters when content changes
         if (searchInput?.value || repoFilter?.value) {
           filterSessions();
         }
-      }, 300));
+      }, 500);
 
-      const sessionsContainer = document.querySelector('.flex-1.overflow-x-hidden');
-      if (sessionsContainer) {
-        observer.observe(sessionsContainer, {
-          childList: true,
-          subtree: true
-        });
-      }
+      observer = new MutationObserver(debouncedUpdate);
+      reconnectObserver();
     }
   }
 
