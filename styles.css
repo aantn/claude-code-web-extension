@@ -1,0 +1,148 @@
+/* Claude Code Sessions Search & Filter Extension Styles */
+
+.cc-filter-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: hsl(var(--bg-100));
+  border-bottom: 0.5px solid hsl(var(--border-300));
+}
+
+.cc-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.cc-search-icon {
+  position: absolute;
+  left: 10px;
+  color: hsl(var(--text-500));
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.cc-search-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 32px 0 32px;
+  font-size: 13px;
+  font-family: inherit;
+  color: hsl(var(--text-100));
+  background-color: hsl(var(--bg-000));
+  border: 0.5px solid hsl(var(--border-300));
+  border-radius: 6px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.cc-search-input::placeholder {
+  color: hsl(var(--text-500));
+}
+
+.cc-search-input:focus {
+  border-color: hsl(var(--border-400));
+  background-color: hsl(var(--bg-000));
+  box-shadow: 0 0 0 2px hsla(var(--accent-brand), 0.1);
+}
+
+.cc-clear-btn {
+  position: absolute;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: hsl(var(--text-500));
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cc-clear-btn:hover {
+  color: hsl(var(--text-100));
+  background-color: hsl(var(--bg-200));
+}
+
+.cc-filter-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.cc-filter-icon {
+  position: absolute;
+  left: 10px;
+  color: hsl(var(--text-500));
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.cc-repo-select {
+  width: 100%;
+  height: 32px;
+  padding: 0 28px 0 32px;
+  font-size: 13px;
+  font-family: inherit;
+  color: hsl(var(--text-100));
+  background-color: hsl(var(--bg-000));
+  border: 0.5px solid hsl(var(--border-300));
+  border-radius: 6px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 20 20' fill='%23888' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5.29289 7.29289C5.68342 6.90237 6.31658 6.90237 6.70711 7.29289L10 10.5858L13.2929 7.29289C13.6834 6.90237 14.3166 6.90237 14.7071 7.29289C15.0976 7.68342 15.0976 8.31658 14.7071 8.70711L10.7071 12.7071C10.3166 13.0976 9.68342 13.0976 9.29289 12.7071L5.29289 8.70711C4.90237 8.31658 4.90237 7.68342 5.29289 7.29289Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: all 0.2s ease;
+}
+
+.cc-repo-select:focus {
+  border-color: hsl(var(--border-400));
+  box-shadow: 0 0 0 2px hsla(var(--accent-brand), 0.1);
+}
+
+.cc-repo-select:hover {
+  border-color: hsl(var(--border-400));
+}
+
+.cc-repo-select option {
+  background-color: hsl(var(--bg-000));
+  color: hsl(var(--text-100));
+  padding: 8px;
+}
+
+/* Keyboard shortcut hint */
+.cc-search-input:not(:focus)::placeholder {
+  content: "Search sessions... (Ctrl+K)";
+}
+
+/* Dark mode adjustments (Claude uses CSS variables, so this should work automatically) */
+@media (prefers-color-scheme: dark) {
+  .cc-repo-select {
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 20 20' fill='%23999' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5.29289 7.29289C5.68342 6.90237 6.31658 6.90237 6.70711 7.29289L10 10.5858L13.2929 7.29289C13.6834 6.90237 14.3166 6.90237 14.7071 7.29289C15.0976 7.68342 15.0976 8.31658 14.7071 8.70711L10.7071 12.7071C10.3166 13.0976 9.68342 13.0976 9.29289 12.7071L5.29289 8.70711C4.90237 8.31658 4.90237 7.68342 5.29289 7.29289Z'/%3E%3C/svg%3E");
+  }
+}
+
+/* No results message */
+.cc-no-results {
+  padding: 16px;
+  text-align: center;
+  color: hsl(var(--text-500));
+  font-size: 13px;
+}
+
+/* Animation for filtering */
+[data-index] {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+[data-index][style*="display: none"] {
+  opacity: 0;
+  transform: scale(0.95);
+}
