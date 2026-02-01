@@ -11,6 +11,7 @@
   let isInitialized = false;
   let observer = null;
   let isFiltering = false;
+  let filterIntervalId = null;
 
   // Debounce function to limit filter calls
   function debounce(func, wait) {
@@ -66,6 +67,60 @@
     }
   }
 
+  // Start periodic filtering for virtualized list
+  function startFilterInterval() {
+    if (filterIntervalId) return;
+    log('Starting filter interval');
+    filterIntervalId = setInterval(() => {
+      if (!isFiltering) {
+        applyFilterToItems();
+      }
+    }, 100);
+  }
+
+  // Stop periodic filtering
+  function stopFilterInterval() {
+    if (filterIntervalId) {
+      log('Stopping filter interval');
+      clearInterval(filterIntervalId);
+      filterIntervalId = null;
+    }
+  }
+
+  // Apply filter to all current items (lightweight version for interval)
+  function applyFilterToItems() {
+    const searchText = searchInput?.value.toLowerCase().trim() || '';
+    const selectedRepo = repoFilter?.value || '';
+
+    if (!searchText && !selectedRepo) {
+      return;
+    }
+
+    const sessionItems = document.querySelectorAll('[data-index]:not(.cc-filter-checked)');
+    if (sessionItems.length === 0) return;
+
+    log('Applying filter to', sessionItems.length, 'new items');
+
+    sessionItems.forEach(item => {
+      item.classList.add('cc-filter-checked');
+
+      const titleSpan = item.querySelector('.font-base.text-text-100.leading-relaxed');
+      const repoSpan = item.querySelector('.text-text-500 .truncate');
+
+      const title = titleSpan ? titleSpan.textContent.toLowerCase() : '';
+      const repo = repoSpan ? repoSpan.textContent.trim() : '';
+
+      const matchesSearch = !searchText || title.includes(searchText);
+      const matchesRepo = !selectedRepo || repo === selectedRepo;
+
+      if (matchesSearch && matchesRepo) {
+        item.classList.remove('cc-hidden');
+      } else {
+        item.classList.add('cc-hidden');
+      }
+    });
+  }
+
   // Filter sessions based on search text and selected repo
   function filterSessions() {
     log('filterSessions called', {
@@ -90,8 +145,29 @@
     }
     isFiltering = true;
 
+    // Clear checked markers so all items get re-evaluated
+    document.querySelectorAll('.cc-filter-checked').forEach(el => {
+      el.classList.remove('cc-filter-checked');
+    });
+
     const sessionItems = document.querySelectorAll('[data-index]');
     log('Found session items:', sessionItems.length);
+
+    // If no filter, show all and stop interval
+    if (!searchText && !selectedRepo) {
+      log('No filter - showing all items');
+      stopFilterInterval();
+      sessionItems.forEach(item => {
+        item.classList.remove('cc-hidden');
+        item.classList.remove('cc-filter-checked');
+      });
+      isFiltering = false;
+      reconnectObserver();
+      return;
+    }
+
+    // Start interval to catch newly loaded items
+    startFilterInterval();
 
     // Collect all changes first, then apply in one batch
     const changes = [];
@@ -99,6 +175,8 @@
     let hideCount = 0;
 
     sessionItems.forEach((item, index) => {
+      item.classList.add('cc-filter-checked');
+
       const titleSpan = item.querySelector('.font-base.text-text-100.leading-relaxed');
       const repoSpan = item.querySelector('.text-text-500 .truncate');
 
@@ -119,36 +197,36 @@
 
     log('Changes calculated:', { showCount, hideCount, total: changes.length });
 
-    // Apply all changes in a single frame
-    log('Scheduling requestAnimationFrame for DOM updates');
-    requestAnimationFrame(() => {
-      log('RAF fired - applying changes');
-      changes.forEach(({ item, shouldShow }) => {
-        if (shouldShow) {
-          item.classList.remove('cc-hidden');
-        } else {
-          item.classList.add('cc-hidden');
-        }
-      });
-      log('Changes applied');
-
-      // Check if classes were actually applied
-      const hiddenItems = document.querySelectorAll('[data-index].cc-hidden');
-      log('Items with cc-hidden class after update:', hiddenItems.length);
-
-      // Re-enable observer after a short delay
-      requestAnimationFrame(() => {
-        log('Second RAF - re-enabling observer');
-        isFiltering = false;
-        reconnectObserver();
-      });
+    // Apply all changes synchronously to avoid flashing
+    log('Applying changes synchronously');
+    changes.forEach(({ item, shouldShow }) => {
+      if (shouldShow) {
+        item.classList.remove('cc-hidden');
+      } else {
+        item.classList.add('cc-hidden');
+      }
     });
+    log('Changes applied');
+
+    // Check if classes were actually applied
+    const hiddenItems = document.querySelectorAll('[data-index].cc-hidden');
+    log('Items with cc-hidden class after update:', hiddenItems.length);
+
+    isFiltering = false;
+    // Don't reconnect observer - let the interval handle new items
   }
 
-  // Reconnect the mutation observer
+  // Reconnect the mutation observer (only if no active filter)
   function reconnectObserver() {
     if (!observer) {
       log('reconnectObserver: no observer');
+      return;
+    }
+
+    // Don't reconnect if there's an active filter - prevents jumpiness from virtualized list
+    const hasActiveFilter = searchInput?.value || repoFilter?.value;
+    if (hasActiveFilter) {
+      log('reconnectObserver: skipping - active filter present');
       return;
     }
 
@@ -234,8 +312,14 @@
     clearBtn.addEventListener('click', () => {
       log('Clear button clicked');
       searchInput.value = '';
+      repoFilter.value = '';
       clearBtn.style.display = 'none';
-      filterSessions();
+      stopFilterInterval();
+      // Clear all filter classes
+      document.querySelectorAll('[data-index]').forEach(item => {
+        item.classList.remove('cc-hidden', 'cc-filter-checked');
+      });
+      reconnectObserver();
       searchInput.focus();
     });
 
@@ -253,9 +337,15 @@
       }
       // Escape to clear and blur
       if (e.key === 'Escape' && document.activeElement === searchInput) {
+        log('Escape pressed - clearing filter');
         searchInput.value = '';
+        repoFilter.value = '';
         clearBtn.style.display = 'none';
-        filterSessions();
+        stopFilterInterval();
+        document.querySelectorAll('[data-index]').forEach(item => {
+          item.classList.remove('cc-hidden', 'cc-filter-checked');
+        });
+        reconnectObserver();
         searchInput.blur();
       }
     });

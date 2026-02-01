@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Claude Code Sessions Search & Filter",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Adds search bar and repository filter to Claude Code web sessions",
   "permissions": [],
   "host_permissions": [
