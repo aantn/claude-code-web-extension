@@ -2,6 +2,9 @@
 (function() {
   'use strict';
 
+  const DEBUG = true;
+  const log = (...args) => DEBUG && console.log('[CC-Filter]', ...args);
+
   let searchInput = null;
   let repoFilter = null;
   let filterContainer = null;
@@ -65,23 +68,37 @@
 
   // Filter sessions based on search text and selected repo
   function filterSessions() {
-    if (!searchInput || !repoFilter) return;
+    log('filterSessions called', {
+      hasSearchInput: !!searchInput,
+      hasRepoFilter: !!repoFilter,
+      isFiltering
+    });
+
+    if (!searchInput || !repoFilter) {
+      log('Early return - missing inputs');
+      return;
+    }
 
     const searchText = searchInput.value.toLowerCase().trim();
     const selectedRepo = repoFilter.value;
+    log('Filter criteria:', { searchText, selectedRepo });
 
     // Pause observer during filtering to prevent feedback loop
     if (observer) {
+      log('Disconnecting observer');
       observer.disconnect();
     }
     isFiltering = true;
 
     const sessionItems = document.querySelectorAll('[data-index]');
+    log('Found session items:', sessionItems.length);
 
     // Collect all changes first, then apply in one batch
     const changes = [];
+    let showCount = 0;
+    let hideCount = 0;
 
-    sessionItems.forEach(item => {
+    sessionItems.forEach((item, index) => {
       const titleSpan = item.querySelector('.font-base.text-text-100.leading-relaxed');
       const repoSpan = item.querySelector('.text-text-500 .truncate');
 
@@ -92,11 +109,20 @@
       const matchesRepo = !selectedRepo || repo === selectedRepo;
       const shouldShow = matchesSearch && matchesRepo;
 
+      if (index < 3) {
+        log(`Item ${index}:`, { title: title.substring(0, 30), repo, matchesSearch, matchesRepo, shouldShow });
+      }
+
       changes.push({ item, shouldShow });
+      if (shouldShow) showCount++; else hideCount++;
     });
 
+    log('Changes calculated:', { showCount, hideCount, total: changes.length });
+
     // Apply all changes in a single frame
+    log('Scheduling requestAnimationFrame for DOM updates');
     requestAnimationFrame(() => {
+      log('RAF fired - applying changes');
       changes.forEach(({ item, shouldShow }) => {
         if (shouldShow) {
           item.classList.remove('cc-hidden');
@@ -104,9 +130,15 @@
           item.classList.add('cc-hidden');
         }
       });
+      log('Changes applied');
+
+      // Check if classes were actually applied
+      const hiddenItems = document.querySelectorAll('[data-index].cc-hidden');
+      log('Items with cc-hidden class after update:', hiddenItems.length);
 
       // Re-enable observer after a short delay
       requestAnimationFrame(() => {
+        log('Second RAF - re-enabling observer');
         isFiltering = false;
         reconnectObserver();
       });
@@ -115,16 +147,22 @@
 
   // Reconnect the mutation observer
   function reconnectObserver() {
-    if (!observer) return;
+    if (!observer) {
+      log('reconnectObserver: no observer');
+      return;
+    }
 
     const sessionsContainer = document.querySelector('.flex-1.overflow-x-hidden');
     if (sessionsContainer) {
+      log('reconnectObserver: reconnecting to container');
       observer.observe(sessionsContainer, {
         childList: true,
         subtree: true,
         attributes: false,
         characterData: false
       });
+    } else {
+      log('reconnectObserver: container not found');
     }
   }
 
@@ -182,21 +220,29 @@
     const clearBtn = document.getElementById('cc-clear-search');
 
     // Debounced filter with longer wait for smoother UX
-    const debouncedFilter = debounce(filterSessions, 250);
+    const debouncedFilter = debounce(() => {
+      log('Debounced filter triggered');
+      filterSessions();
+    }, 250);
 
-    searchInput.addEventListener('input', () => {
+    searchInput.addEventListener('input', (e) => {
+      log('Search input event:', searchInput.value);
       clearBtn.style.display = searchInput.value ? 'flex' : 'none';
       debouncedFilter();
     });
 
     clearBtn.addEventListener('click', () => {
+      log('Clear button clicked');
       searchInput.value = '';
       clearBtn.style.display = 'none';
       filterSessions();
       searchInput.focus();
     });
 
-    repoFilter.addEventListener('change', filterSessions);
+    repoFilter.addEventListener('change', () => {
+      log('Repo filter changed:', repoFilter.value);
+      filterSessions();
+    });
 
     // Keyboard shortcut: Ctrl/Cmd + K to focus search
     document.addEventListener('keydown', (e) => {
@@ -227,19 +273,27 @@
     // Try to inject the filter UI
     if (injectFilterUI()) {
       isInitialized = true;
-      console.log('Claude Code Sessions Search & Filter: Initialized');
+      log('Extension initialized successfully');
 
       // Set up a MutationObserver to update repo options when sessions change
       const debouncedUpdate = debounce(() => {
-        if (isFiltering) return;
+        log('MutationObserver callback fired', { isFiltering });
+        if (isFiltering) {
+          log('Skipping - currently filtering');
+          return;
+        }
         updateRepoOptions();
         // Re-apply filters when content changes
         if (searchInput?.value || repoFilter?.value) {
+          log('Re-applying filters due to DOM change');
           filterSessions();
         }
       }, 500);
 
-      observer = new MutationObserver(debouncedUpdate);
+      observer = new MutationObserver((mutations) => {
+        log('MutationObserver saw', mutations.length, 'mutations');
+        debouncedUpdate();
+      });
       reconnectObserver();
     }
   }
