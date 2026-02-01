@@ -124,7 +124,8 @@
   }
 }
 
-/* Hidden session items - instant hide, no animation to avoid jumpiness */
+/* Hidden session items - use opacity to preserve virtual list positioning */
 [data-index].cc-hidden {
-  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
